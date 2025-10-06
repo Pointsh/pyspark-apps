@@ -8,8 +8,8 @@ def for_each_batch_func(df: DataFrame, epoch_id):
     print(f'====================================== epoch_id: {epoch_id} start ======================================')
     df.persist()
 
-    df.createOrReplaceTempView('streaming_df')
-    view_df = spark.sql('select * from streaming_df')
+    df.createOrReplaceGlobalTempView('streaming_df')
+    view_df = spark.sql('select * from global_temp.streaming_df')
     print(f'view_df.show()')
     view_df.show(truncate=False)
 
