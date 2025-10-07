@@ -34,7 +34,7 @@ class RtBicycleRent(BaseStreamApp):
                 stt_lgtd        STRING,
                 crt_dttm        TIMESTAMP
             )
-            LOCATION 's3a://datalake-spark-sink/lesson/bicycle_rent_info'
+            LOCATION 's3a://datalake-spark-sink-psh/lesson/bicycle_rent_info'
             PARTITIONED BY (ymd STRING, hh STRING)
             STORED AS PARQUET
               '''
@@ -89,6 +89,7 @@ class RtBicycleRent(BaseStreamApp):
         distinct_dttm = sorted([row['crt_dttm'] for row in df.select('crt_dttm').distinct().collect()])
         self.logger.write_log('info', f'stream DataFrame 내 dttm 카운트: {len(distinct_dttm)}', epoch_id)
 
+        #데이터를 순서대로 처리하기 위한 로직
         for dttm in distinct_dttm:
             self.sink_to_s3(
                 last_stt_df=self.last_stt_info_df,
