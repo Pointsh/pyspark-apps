@@ -1,4 +1,4 @@
-from common.Inheritance.base_stream_app import BaseStreamApp
+from common.Inheritance.base_stream_app_add_check_point import BaseStreamApp
 from pyspark.sql.dataframe import DataFrame
 from pyspark.sql.functions import get_json_object, col
 from pyspark.sql.types import IntegerType
