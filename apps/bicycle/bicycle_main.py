@@ -186,5 +186,5 @@ class RtBicycleRent(BaseStreamApp):
 
 
 if __name__ == '__main__':
-    rt_bicycle_rent = RtBicycleRent(app_name='rt_bicycle_rent')
+    rt_bicycle_rent = RtBicycleRent(app_name='bicycle_main')
     rt_bicycle_rent.main()
