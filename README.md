@@ -1,12 +1,27 @@
 ##  Bicycle Streaming (Integrated with `kafka-producer`)
 
 `pyspark-apps/apps/bicycle`는 [`kafka-producer`](https://github.com/Pointsh/kafka-producer)의 **서울 따릉이 실시간 API** 파이프라인이 발행한 데이터를
-**Kafka → Spark Structured Streaming → (S3/HDFS Sink, View)** 흐름으로 처리하는 스트리밍 잡 모음입니다.
+**Kafka → Spark Structured Streaming → (S3/HDFS Sink, View)** 흐름으로 처리하는 스트리밍 JOB 모음입니다.
 
 - 핵심 엔트리: `apps/bicycle/rt_bicycle_rent.py`
 - 공통 베이스: `common/Inheritance/base_stream_app.py` (체크포인트/세션/로깅)
 - 예제 유틸: `dataframe_checkpoint.py`, `dataframe_to_parameter.py`, `instance_variable.py`, `global_dataframe.py`
+---
+### 실시간 대여/반납 감지 로직 (Diff 기반 이벤트)
+`kafka-producer`는 **전/현재 보관 대수의 차이(Δ)** 로 대여/반납 이벤트를 계산해 Kafka로 발행합니다.
+`pyspark-apps`는 이 **가공된 이벤트 필드**를 그대로 소비하여 시간·지점별 집계를 수행합니다.
 
+- Producer 계산 규칙
+  - `diff = curr_cnt - prev_cnt`
+  - `diff > 0` ⇒ `return_cnt = diff`, `rent_cnt = 0`
+  - `diff < 0` ⇒ `rent_cnt = abs(diff)`, `return_cnt = 0`
+  
+
+- Streaming 소비 필드(예시):  
+  `stt_id, stt_nm, rent_cnt, return_cnt, lst_prk_cnt, stt_lttd, stt_lgtd, crt_dttm`
+- Spark 처리 흐름: **Kafka Source → from_json 파싱 → foreachBatch 집계/저장 → (S3/HDFS Sink, View/GlobalView)**
+- Checkpoint: `self.kafka_offset_dir` (Exactly-Once 복원)
+- Sink: Parquet 출력(예: `partitionBy("ymd","hh")`)로 Athena/대시보드 쿼리에 최적화
 ---
 <p align="center">
   <img src="docs/대시보드.png" width="90%">
@@ -83,7 +98,7 @@ json_df = (
 `rt_bicycle_rent.py`는 Kafka에서 읽은 마이크로배치 데이터를  
 배치 단위(`foreachBatch`)로 가공한 뒤 **S3 Data Lake**에 Parquet 포맷으로 적재합니다.
 
----
+
 
 ### foreachBatch 구현
 
