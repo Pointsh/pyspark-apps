@@ -7,7 +7,7 @@
 - 공통 베이스: `common/Inheritance/base_stream_app.py` (체크포인트/세션/로깅)
 - 예제 유틸: `dataframe_checkpoint.py`, `dataframe_to_parameter.py`, `instance_variable.py`, `global_dataframe.py`
 ---
-### 실시간 대여/반납 감지 로직 (Diff 기반 이벤트)
+## 실시간 대여/반납 감지 로직 (Diff 기반 이벤트)
 `kafka-producer`는 **전/현재 보관 대수의 차이(Δ)** 로 대여/반납 이벤트를 계산해 Kafka로 발행합니다.
 `pyspark-apps`는 이 **가공된 이벤트 필드**를 그대로 소비하여 시간·지점별 집계를 수행합니다.
 
@@ -33,7 +33,7 @@
 
 ---
 
-###  Upstream (from `kafka-producer`)
+##  Upstream (from `kafka-producer`)
 
 | 항목 | 값 |
 |---|---|
@@ -61,7 +61,7 @@
 
 ---
 
-###  Kafka Source + JSON 파싱 (요약 코드)
+##  Kafka Source + JSON 파싱 (요약 코드)
 
 ```python
 from pyspark.sql import functions as F, types as T
