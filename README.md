@@ -24,6 +24,12 @@
 - Sink: Parquet 출력(예: `partitionBy("ymd","hh")`)로 Athena/대시보드 쿼리에 최적화
 ---
 <p align="center">
+  <img src="docs/spark_streaming.png" width="90%">
+</p>
+<p align="center">
+  <img src="docs/hadoop.png" width="90%">
+</p>
+<p align="center">
   <img src="docs/대시보드.png" width="90%">
 </p>
 

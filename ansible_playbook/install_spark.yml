@@ -1,0 +1,41 @@
+---
+- name: install Apache Spark
+  hosts: spark
+  tasks:
+    - name: Add spark group
+      group:
+        name: spark
+        gid: 1001
+        system: false
+      become: yes
+
+    - name: Add Spark user
+      user:
+        name: spark
+        shell: /bin/bash
+        uid: 1001
+        group: spark
+        groups: ubuntu
+        comment: User for Spark Cluster
+      become: yes
+
+    - name: make directory
+      ansible.builtin.file:
+        path: /engine
+        state: directory
+      become: yes
+
+    - name: unarchive file
+      ansible.builtin.unarchive:
+        src: /home/ec2-user/downloads/spark-3.5.1-bin-hadoop3.tgz
+        dest: /engine
+        copy: true
+        owner: spark
+        group: spark
+      become: yes
+
+    - name: Install Java 8
+      ansible.builtin.apt:
+        name: openjdk-8-jre
+        update_cache: true
+      become: yes

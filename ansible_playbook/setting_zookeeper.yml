@@ -1,0 +1,40 @@
+---
+- name: Setting Zookeeper Service
+  hosts: spark
+  tasks:
+    - name: Copy zoo_sample.cfg to zoo.cfg
+      copy:
+        src: /engine/apache-zookeeper-3.8.4-bin/conf/zoo_sample.cfg
+        dest: /engine/apache-zookeeper-3.8.4-bin/conf/zoo.cfg
+        remote_src: yes
+        owner: zookeeper
+        group: zookeeper
+      become: yes
+    - name: Create zookeeper data directory
+      file:
+        path: /data01/zookeeper
+        owner: zookeeper
+        group: zookeeper
+        state: directory
+      become: yes
+    - name: create myid file
+      lineinfile:
+        path: /data01/zookeeper/myid
+        create: yes
+        state: present
+        owner: zookeeper
+        group: zookeeper
+        regex: '^[0-9]'
+        line: '{{ spark_no }}'
+      become: yes
+    - name: setting zoo.cfg
+      lineinfile:
+        path: /engine/apache-zookeeper-3.8.4-bin/conf/zoo.cfg
+        regexp: '{{ item.regexp }}'
+        line: '{{ item.line }}'
+      loop:
+        - { regexp: '^dataDir', line: 'dataDir=/data01/zookeeper' }
+        - { regexp: '^server1', line: 'server.1=spark01:2888:3888' }
+        - { regexp: '^server2', line: 'server.2=spark02:2888:3888' }
+        - { regexp: '^server3', line: 'server.3=spark03:2888:3888' }
+      become: yes

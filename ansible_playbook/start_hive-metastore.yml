@@ -1,0 +1,39 @@
+---
+- name: Register Hive metastore service as a daemon
+  hosts: spark03
+  tasks:
+    - name: create hive-metastore.service file
+      blockinfile:
+        path: /etc/systemd/system/hive-metastore.service
+        create: yes
+        block: |
+          [Unit]
+          Description=Hive metastore Service
+          After=network.target mysql.service
+          
+          [Service]
+          Type=simple
+          Environment=HADOOP_HOME=/engine/hadoop-3.3.6
+          ExecStart=/engine/apache-hive-metastore-3.1.2-bin/bin/start-metastore
+          User=hadoop
+          Group=hadoop
+          Restart=always
+          
+          [Install]
+          WantedBy=multi-user.target
+        marker: "# {mark} Hive Metastore Service"
+      become: yes
+
+    - name: daemon-reload
+      systemd_service:
+        daemon_reload: yes
+      become: yes
+
+    - name: Start Hive Metastore Service
+      systemd_service:
+        state: started
+        name: hive-metastore
+        enabled: true
+      become: yes
+      tags:
+        - start

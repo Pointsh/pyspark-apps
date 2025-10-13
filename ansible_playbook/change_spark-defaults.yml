@@ -1,0 +1,55 @@
+---
+- name: Deploy jars of hive metastore
+  hosts: spark
+  tasks:
+    - name: creates jars directory for hive metastore
+      file:
+        path: /engine/spark-3.5.1-bin-hadoop3/jars_hms
+        state: directory
+        owner: spark
+        group: spark
+      become: yes
+
+    - name: change jars
+      copy:
+        src: "{{ item.src }}"
+        dest: /engine/spark-3.5.1-bin-hadoop3/jars_hms
+        remote_src: no
+        owner: spark
+        group: spark
+      loop:
+        - src: /home/ec2-user/downloads/hive-beeline-3.1.2.jar
+        - src: /home/ec2-user/downloads/hive-cli-3.1.2.jar
+        - src: /home/ec2-user/downloads/hive-common-3.1.2.jar
+        - src: /home/ec2-user/downloads/hive-exec-3.1.2.jar
+        - src: /home/ec2-user/downloads/hive-jdbc-3.1.2.jar
+        - src: /home/ec2-user/downloads/hive-llap-common-3.1.2.jar
+        - src: /home/ec2-user/downloads/hive-metastore-3.1.2.jar
+        - src: /home/ec2-user/downloads/hive-serde-3.1.2.jar
+        - src: /home/ec2-user/downloads/hive-shims-0.23-3.1.2.jar
+        - src: /home/ec2-user/downloads/hive-shims-3.1.2.jar
+        - src: /home/ec2-user/downloads/hive-shims-common-3.1.2.jar
+        - src: /home/ec2-user/downloads/hive-shims-scheduler-3.1.2.jar
+        - src: /home/ec2-user/downloads/hive-standalone-metastore-3.1.2.jar
+        - src: /home/ec2-user/downloads/calcite-core-1.16.0.jar
+      become: yes
+
+    - name: modify spark-defaults.conf
+      blockinfile:
+        path: /engine/spark-3.5.1-bin-hadoop3/conf/spark-defaults.conf
+        block: |
+          spark.master yarn
+          spark.deploy.mode client
+          spark.serializer org.apache.spark.serializer.KryoSerializer
+          spark.sql.shuffle.partitions 6
+          spark.hadoop.hive.metastore.uris thrift://spark03:9083
+          spark.sql.warehouse.dir hdfs:///home/spark/warehouse
+          spark.sql.catalogImplementation hive
+          spark.sql.hive.metastore.version 3.1.2
+          spark.sql.hive.metastore.jars path
+          spark.sql.hive.metastore.jars.path file:///engine/spark-3.5.1-bin-hadoop3/jars_hms/*.jar,file:///engine/spark-3.5.1-bin-hadoop3/jars/*.jar
+        marker: "# {mark} Setting spark-defaults.conf"
+        create: true
+        owner: spark
+        group: spark
+      become: yes

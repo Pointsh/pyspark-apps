@@ -1,0 +1,38 @@
+---
+- name: Register Zookeeper service as a daemon
+  hosts: spark
+  tasks:
+    - name: zookeeper.service file
+      blockinfile:
+        path: /etc/systemd/system/zookeeper.service
+        create: yes
+        block: |
+          [Unit]
+          Description=Zookeeper Service
+          After=network.target
+          
+          [Service]
+          Type=forking
+          ExecStart=/engine/apache-zookeeper-3.8.4-bin/bin/zkServer.sh start
+          ExecStop=/engine/apache-zookeeper-3.8.4-bin/bin/zkServer.sh stop
+          ExecReload=/engine/apache-zookeeper-3.8.4-bin/bin/zkServer.sh restart
+          User=zookeeper
+          Group=zookeeper
+          Restart=always
+          
+          [Install]
+          WantedBy=multi-user.target
+        marker: "# {mark} Zookeeper Service"
+      become: yes
+    - name: daemon-reload
+      systemd_service:
+        daemon_reload: yes
+      become: yes
+    - name: Start Zookeeper Service
+      systemd_service:
+        state: started
+        name: zookeeper
+        enabled: true
+      become: yes
+      tags:
+        - start

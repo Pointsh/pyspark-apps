@@ -1,0 +1,64 @@
+---
+- name: install Apache Spark
+  hosts: spark
+  tasks:
+    - name: Create src directory
+      ansible.builtin.file:
+        path: /src
+        state: directory
+        owner: spark
+        group: spark
+      become: yes
+
+    - name: install package for python3.10
+      become: yes
+      apt:
+        pkg:
+          - software-properties-common
+        update_cache: true
+
+    - name: Add repo
+      become: yes
+      apt_repository:
+        repo: ppa:deadsnakes/ppa
+
+    - name: install python3.10, python3-pip, venv
+      become: yes
+      apt:
+        pkg:
+          - python3.10
+          - python3-pip
+          - python3.10-venv
+        update_cache: true
+
+    - name: create python virtual environment
+      become: yes
+      command:
+        cmd: /usr/bin/python3.10 -m venv /src/spark_venv
+        creates: /src/spark_venv
+
+    - name: change owner to spark
+      become: true
+      file:
+        path: /src/spark_venv
+        owner: spark
+        group: spark
+        recurse: yes
+
+    - name: Modify .bashrc
+      blockinfile:
+        path: /home/spark/.bashrc
+        block: |
+          source /src/spark_venv/bin/activate
+          export PYTHONPATH="${PYTHONPATH}:/src/pyspark-apps"
+          export PYSPARK_PYTHON=/src/spark_venv/bin/python
+          export PYSPARK_DRIVER_PYTHON=$PYSPARK_PYTHON
+          export HADOOP_HOME=/engine/hadoop-3.3.6
+          export SPARK_HOME=/engine/spark-3.5.1-bin-hadoop3
+          export PATH=$SPARK_HOME/bin:$HADOOP_HOME/bin:$PATH
+          export AWS_JAVA_V1_DISABLE_DEPRECATION_ANNOUNCEMENT=true
+          
+          alias bin="cd /engine/spark-3.5.1-bin-hadoop3/bin"
+          alias conf="cd /engine/spark-3.5.1-bin-hadoop3/conf"
+        marker: "# {mark} Setting bashrc"
+      become: yes

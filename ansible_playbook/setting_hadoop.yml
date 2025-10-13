@@ -1,0 +1,408 @@
+---
+- name: setting hadoop xml
+  hosts: spark
+  tasks:
+    - name: create masters file
+      blockinfile:
+        path: /engine/hadoop-3.3.6/etc/hadoop/hadoop-env.sh
+        block: |
+          export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
+          export HADOOP_CONF_DIR=/engine/hadoop-3.3.6/etc/hadoop
+        marker: "# {mark} Setting hadoop-env.sh from ansible"
+        create: true
+      become: yes
+
+    - name: create workers file
+      blockinfile:
+        path: /engine/hadoop-3.3.6/etc/hadoop/workers
+        block: |
+          spark01
+          spark02
+          spark03
+        marker: "# {mark} Setting workers from ansible"
+        create: true
+        owner: hadoop
+        group: hadoop
+      become: yes
+
+    - name: create directories
+      file:
+        name: "{{ item }}"
+        state: directory
+        owner: hadoop
+        group: hadoop
+      loop:
+        - /data01/hdfs/namenode
+        - /data01/hdfs/namesecondary
+        - /data01/hdfs/datanode
+        - /data01/hdfs/journalnode
+        - /data01/hdfs/checkpoint
+        - /data01/hdfs/edits
+        - /data01/hdfs/tmp
+        - /data01/yarn/rm-local-dir
+        - /data01/yarn/logs
+        - /data01/yarn/system/rmstore
+      become: yes
+
+    - name: delete original configure tags
+      lineinfile:
+        dest: "{{ item }}"
+        state: absent
+        regexp: "^<[/]?configuration>"
+      loop:
+        - /engine/hadoop-3.3.6/etc/hadoop/hdfs-site.xml
+        - /engine/hadoop-3.3.6/etc/hadoop/core-site.xml
+        - /engine/hadoop-3.3.6/etc/hadoop/yarn-site.xml
+        - /engine/hadoop-3.3.6/etc/hadoop/mapred-site.xml
+      become: yes
+
+    - name: setting hdfs-site.xml
+      blockinfile:
+        path: /engine/hadoop-3.3.6/etc/hadoop/hdfs-site.xml
+        block: |
+          <configuration>
+            <property>
+              <name>dfs.client.failover.proxy.provider.datalake</name>
+              <value>org.apache.hadoop.hdfs.server.namenode.ha.ConfiguredFailoverProxyProvider</value>
+            </property>
+            <!-- dfs.datanode.data.dir: 실제 HDFS 데이터가 저장될 경로-->
+            <property>
+              <name>dfs.datanode.data.dir</name>
+              <value>/data01/hdfs/datanode</value>
+              <final>true</final>
+            </property>
+            <property>
+              <name>dfs.ha.automatic-failover.enabled</name>
+              <value>true</value>
+            </property>
+            <property>
+              <name>dfs.ha.fencing.methods</name>
+              <value>shell(/bin/true)</value>
+            </property>
+            <property>
+              <name>dfs.ha.fencing.ssh.private-key-files</name>
+              <value>/home/hadoop/.ssh/id_rsa</value>
+            </property>
+            <property>
+              <name>dfs.ha.namenodes.datalake</name>
+              <value>nn1,nn2</value>
+            </property>
+            <property>
+              <name>dfs.journalnode.edits.dir</name>
+              <value>/data01/hdfs/journalnode</value>
+            </property>
+            <property>
+               <name>dfs.namenode.checkpoint.dir</name>
+               <value>/data01/hdfs/namesecondary</value>
+            </property> 
+            <property>
+               <name>dfs.namenode.checkpoint.edits.dir</name>
+               <value>${dfs.namenode.checkpoint.dir}</value>
+            </property>        
+            <property>
+              <name>dfs.namenode.http-address.datalake.nn1</name>
+              <value>spark01:50070</value>
+            </property>
+            <property>
+              <name>dfs.namenode.http-address.datalake.nn2</name>
+              <value>spark02:50070</value>
+            </property>
+            <property>
+               <name>dfs.namenode.name.dir</name>
+               <value>/data01/hdfs/namenode</value>
+               <final>true</final>
+            </property>    
+            <property>
+              <name>dfs.namenode.rpc-address.datalake.nn1</name>
+              <value>spark01:8020</value>
+            </property>
+            <property>
+              <name>dfs.namenode.rpc-address.datalake.nn2</name>
+              <value>spark02:8020</value>
+            </property>
+            <property>
+              <name>dfs.namenode.shared.edits.dir</name>
+              <value>qjournal://spark01:8485;spark02:8485;spark03:8485/datalake</value>
+            </property>
+            <property>
+              <name>dfs.nameservices</name>
+              <value>datalake</value>
+            </property>
+            <property>
+              <name>dfs.permissions.superusergroup</name>
+              <value>hadoop</value>
+            </property>
+            <property>
+              <name>dfs.webhdfs.enabled</name>
+              <value>true</value>
+            </property>
+            <property>
+              <name>fs.permissions.umask-mode</name>
+              <value>002</value>
+            </property>
+            <property>
+              <name>fs.s3a.impl</name>
+              <value>org.apache.hadoop.fs.s3a.S3AFileSystem</value>
+            </property>
+          </configuration>
+        marker: "<!-- {mark} Setting hadoop configurations from ansible-->"
+      become: yes
+
+    - name: setting core-site.xml
+      blockinfile:
+        path: /engine/hadoop-3.3.6/etc/hadoop/core-site.xml
+        block: |
+          <configuration>
+            <property>
+                <name>fs.defaultFS</name>
+                <value>hdfs://datalake</value>
+            </property>
+            <property>
+              <name>fs.s3a.impl</name>
+              <value>org.apache.hadoop.fs.s3a.S3AFileSystem</value>
+            </property>
+            <property>
+              <name>hadoop.tmp.dir</name>
+              <value>/data01/hdfs/tmp</value>
+            </property>
+            <property>
+                <name>hadoop.proxyuser.hadoop.hosts</name>
+                <value>*</value>
+            </property>
+            <property>
+                <name>hadoop.proxyuser.hadoop.groups</name>
+                <value>*</value>
+            </property>
+            <property>
+                <name>ha.zookeeper.quorum</name>
+                <value>spark01:2181,spark02:2181,spark03:2181</value>
+            </property>
+          </configuration>
+        marker: "<!-- {mark} Setting hadoop configurations from ansible-->"
+      become: yes
+
+    - name: setting mapred-site.xml
+      blockinfile:
+        path: /engine/hadoop-3.3.6/etc/hadoop/mapred-site.xml
+        block: |
+          <configuration>
+            <property>
+              <name>mapreduce.framework.name</name>
+              <value>yarn</value>
+            </property>
+            <property>
+              <name>mapreduce.map.memory.mb</name>
+              <value>1024</value>
+            </property>
+            <property>
+              <name>mapreduce.map.java.opts</name>
+              <value>-Xmx1024m</value>
+            </property>
+            <property>
+              <name>mapreduce.reduce.memory.mb</name>
+              <value>1024</value>
+            </property>
+            <property>
+              <name>mapreduce.reduce.java.opts</name>
+              <value>-Xmx1024m</value>
+            </property>
+            <property>
+              <name>mapreduce.task.io.sort.mb</name>
+              <value>1024</value>
+            </property>
+          </configuration>
+        marker: "<!-- {mark} Setting hadoop configurations from ansible-->"
+      become: yes
+
+    - name: setting yarn-site.xml
+      blockinfile:
+        path: /engine/hadoop-3.3.6/etc/hadoop/yarn-site.xml
+        block: |
+          <configuration>
+            <property>
+              <name>yarn.application.classpath</name>
+              <value>/engine/hadoop-3.3.6/etc/hadoop,
+                     /engine/hadoop-3.3.6/share/hadoop/common/*,
+                     /engine/hadoop-3.3.6/share/hadoop/common/lib/*,
+                     /engine/hadoop-3.3.6/share/hadoop/hdfs/*,
+                     /engine/hadoop-3.3.6/share/hadoop/hdfs/lib/*,
+                     /engine/hadoop-3.3.6/share/hadoop/mapreduce/*,
+                     /engine/hadoop-3.3.6/share/hadoop/mapreduce/lib/*,
+                     /engine/hadoop-3.3.6/share/hadoop/yarn/*,
+                     /engine/hadoop-3.3.6/share/hadoop/yarn/lib/*
+              </value>
+            </property>
+            <property>
+              <name>yarn.log-aggregation-enable</name>
+              <value>true</value>
+            </property>
+            <property>
+              <name>yarn.log-aggregation.retain-seconds</name>
+              <value>259200</value>
+            </property>
+            <property>
+              <name>yarn.nodemanager.aux-services</name>
+              <value>mapreduce_shuffle</value>
+            </property>
+            <property>
+              <name>yarn.nodemanager.aux-services.mapreduce_shuffle.class</name>
+              <value>org.apache.hadoop.mapred.ShuffleHandler</value>
+            </property>
+            <property>
+              <name>yarn.nodemanager.local-dirs</name>
+              <value>/data01/yarn/rm-local-dir</value>
+            </property>
+            <property>
+              <name>yarn.nodemanager.log-dirs</name>
+              <value>/data01/yarn/logs</value>
+            </property>
+            <property>
+              <name>yarn.nodemanager.log.retain-seconds</name>
+              <value>259200</value>
+            </property>
+            <property>
+              <name>yarn.nodemanager.remote-app-log-dir</name>
+              <value>/apps/yarn/app-logs</value>
+            </property>
+            <property>
+              <name>yarn.nodemanager.resource.cpu-vcores</name>
+              <value>6</value>
+            </property>
+            <property>
+              <name>yarn.nodemanager.resource.memory-mb</name>
+              <value>8192</value>
+            </property>
+            <property>
+              <name>yarn.resourcemanager.address.rm1</name>
+              <value>spark01:8032</value>
+            </property>
+            <property>
+              <name>yarn.resourcemanager.admin.address.rm1</name>
+              <value>spark01:8033</value>
+            </property>
+            <property>
+              <name>yarn.resourcemanager.admin.address.rm2</name>
+              <value>spark02:8033</value>
+            </property>
+            <property>
+              <name>yarn.resourcemanager.address.rm2</name>
+              <value>spark02:8032</value>
+            </property>
+            <property>
+              <name>yarn.resourcemanager.cluster-id</name>
+              <value>yarn-cluster</value>
+            </property>
+            <property>
+              <name>yarn.resourcemanager.fs.state-store.uri</name>
+              <value>/data01/yarn/system/rmstore</value>
+            </property>
+            <property>
+              <name>yarn.resourcemanager.ha.enabled</name>
+              <value>true</value>
+            </property>
+            <property>
+              <name>yarn.resourcemanager.ha.rm-ids</name>
+              <value>rm1,rm2</value>
+            </property>
+            <property>
+              <name>yarn.resourcemanager.hostname</name>
+              <value>spark01</value>
+            </property>
+            <property>
+              <name>yarn.resourcemanager.hostname.rm1</name>
+              <value>spark01</value>
+            </property>
+            <property>
+              <name>yarn.resourcemanager.hostname.rm2</name>
+              <value>spark02</value>
+            </property>
+            <property>
+              <name>yarn.resourcemanager.recovery.enabled</name>
+              <value>true</value>
+            </property>
+            <property>
+              <name>yarn.resourcemanager.resource-tracker.address</name>
+              <value>spark01:8031</value>
+            </property>
+            <property>
+              <name>yarn.resourcemanager.resource-tracker.address.rm1</name>
+              <value>spark01:8031</value>
+            </property>
+            <property>
+              <name>yarn.resourcemanager.resource-tracker.address.rm2</name>
+              <value>spark02:8031</value>
+            </property>
+            <property>
+              <name>yarn.resourcemanager.scheduler.address</name>
+              <value>spark01:8030</value>
+            </property>
+            <property>
+              <name>yarn.resourcemanager.scheduler.address.rm2</name>
+              <value>spark02:8030</value>
+            </property>
+            <property>
+              <name>yarn.resourcemanager.scheduler.class</name>
+              <value>org.apache.hadoop.yarn.server.resourcemanager.scheduler.capacity.CapacityScheduler</value>
+            </property>
+            <property>
+              <name>yarn.resourcemanager.webapp.address.rm1</name>
+              <value>spark01:8088</value>
+            </property>
+            <property>
+              <name>yarn.resourcemanager.webapp.address.rm2</name>
+              <value>spark02:8088</value>
+            </property>
+            <property>
+              <name>yarn.resourcemanager.zk-address</name>
+              <value>spark01:2181,spark02:2181,spark03:2181</value>
+            </property>
+            <property>
+              <name>yarn.scheduler.increment-allocation-mb</name>
+              <value>1024</value>
+            </property>
+            <property>
+                <name>yarn.scheduler.increment-allocation-vcores</name>
+                <value>1</value>
+            </property>
+            <property>
+              <name>yarn.scheduler.maximum-allocation-mb</name>
+              <value>4096</value>
+            </property>
+            <property>
+              <name>yarn.scheduler.maximum-allocation-vcores</name>
+              <value>2</value>
+            </property>
+            <property>
+              <name>yarn.scheduler.minimum-allocation-mb</name>
+              <value>1024</value>
+            </property>
+            <property>
+              <name>yarn.scheduler.minimum-allocation-vcores</name>
+              <value>1</value>
+            </property>
+            <property>
+              <name>yarn.timeline-service.version</name>
+              <value>2.0f</value>
+            </property>
+            <property>
+              <name>yarn.timeline-service.webapp.address</name>
+              <value>spark01:8188</value>
+            </property>
+            <property>
+              <name>yarn.webapp.api-service.enable</name>
+              <value>true</value>
+            </property>
+            <property>
+              <name>yarn.webapp.ui2.enable</name>
+              <value>true</value>
+            </property>
+          </configuration>
+        marker: "<!--{mark} Setting hadoop configurations from ansible-->"
+      become: yes
+
+    - name: modify capacity-scheduler.xml file for yarn.scheduler.capacity.maximum-am-resource-percent property
+      lineinfile:
+        dest: /engine/hadoop-3.3.6/etc/hadoop/capacity-scheduler.xml
+        regexp: '<value>0\.[1-9]</value>'
+        line: '    <value>0.9</value>'
+      become: yes

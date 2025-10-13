@@ -1,0 +1,40 @@
+---
+- name: install codeDeploy Agent
+  hosts: spark
+  tasks:
+    - name: install packages
+      apt:
+        update_cache: true                        # update_cache -> apt update 와 동일
+        pkg:
+          - 'ruby-full'
+          - 'wget'
+      become: yes
+    - name: create directory
+      file:
+        path: /src/code-deploy
+        state: directory
+        owner: ubuntu
+        group: ubuntu
+      become: yes
+
+    - name: download codedeploy install file from S3
+      get_url:
+        url: 'https://aws-codedeploy-ap-northeast-2.s3.ap-northeast-2.amazonaws.com/latest/install'
+        dest: /src/code-deploy
+
+    - name: add execute privilege                 # 실행 권한 추가
+      file:
+        path: /src/code-deploy/install
+        state: file
+        mode: u+x
+
+    - name: run install
+      command:
+        cmd: /src/code-deploy/install auto
+      become: yes
+
+    - name: start code deploy service
+      systemd_service:
+        state: started
+        name: codedeploy-agent
+        enabled: true

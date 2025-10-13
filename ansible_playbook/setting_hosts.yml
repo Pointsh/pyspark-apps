@@ -1,0 +1,28 @@
+---
+- name: Setting /etc/hosts file
+  hosts: spark
+  tasks:
+    - name: setting spark hosts
+      blockinfile:
+        path: /etc/hosts
+        block: |
+          172.31.xx.xxx kafka01
+          172.31.xx.xxx kafka02
+          172.31.xx.xxx kafka03
+          172.31.xx.xxx spark01
+          172.31.xx.xxx spark02
+          172.31.xx.xxx spark03
+        marker: "# {mark} Setting datalake hosts"
+      become: yes
+
+    - name: setting hostname
+      lineinfile:
+        path: /etc/hostname
+        regexp: '^(ip|spark)'
+        line: '{{ inventory_hostname }}'
+      become: yes
+
+    - name: change timezone
+      command:
+        cmd: timedatectl set-timezone Asia/Seoul
+      become: yes

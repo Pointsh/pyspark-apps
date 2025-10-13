@@ -1,0 +1,71 @@
+---
+- name: setting spark configuration
+  hosts: spark
+  tasks:
+    - name: Modify .bashrc of spark user
+      blockinfile:
+        path: /home/spark/.bashrc
+        block: |
+          source /src/spark_venv/bin/activate
+          export PYTHONPATH="${PYTHONPATH}:/src/pyspark-apps"
+          export PYSPARK_PYTHON=/src/spark_venv/bin/python
+          export PYSPARK_DRIVER_PYTHON=$PYSPARK_PYTHON
+          export HADOOP_HOME=/engine/hadoop-3.3.6
+          export SPARK_HOME=/engine/spark-3.5.1-bin-hadoop3
+          export PATH=$SPARK_HOME/bin:$HADOOP_HOME/bin:$PATH
+          export AWS_JAVA_V1_DISABLE_DEPRECATION_ANNOUNCEMENT=true
+          
+          alias bin="cd /engine/spark-3.5.1-bin-hadoop3/bin"
+          alias conf="cd /engine/spark-3.5.1-bin-hadoop3/conf"
+        marker: "# {mark} Setting bashrc"
+      become: yes
+
+    - name: copy spark-env.sh.template to spark-env.sh
+      copy:
+        remote_src: true
+        src: /engine/spark-3.5.1-bin-hadoop3/conf/spark-env.sh.template
+        dest: /engine/spark-3.5.1-bin-hadoop3/conf/spark-env.sh
+        owner: spark
+        group: spark
+      become: yes
+
+    - name: modify spark-env.sh
+      blockinfile:
+        path: /engine/spark-3.5.1-bin-hadoop3/conf/spark-env.sh
+        block: |
+          export HADOOP_CONF_DIR=/engine/hadoop-3.3.6/etc/hadoop
+          export YARN_CONF_DIR=/engine/hadoop-3.3.6/etc/hadoop
+        marker: "# {mark} Setting spark-env.sh"
+      become: yes
+
+    - name: modify spark-defaults.conf
+      blockinfile:
+        path: /engine/spark-3.5.1-bin-hadoop3/conf/spark-defaults.conf
+        block: |
+          spark.master yarn
+          spark.deploy.mode client
+        marker: "# {mark} Setting spark-defaults.conf"
+        create: true
+        owner: spark
+        group: spark
+      become: yes
+
+    - name: copy log4j2.properties.template to log4j2.properties
+      copy:
+        remote_src: true
+        src: /engine/spark-3.5.1-bin-hadoop3/conf/log4j2.properties.template
+        dest: /engine/spark-3.5.1-bin-hadoop3/conf/log4j2.properties
+        owner: spark
+        group: spark
+      become: yes
+
+
+    - name: modify rootLogger.level
+      lineinfile:
+        path: /engine/spark-3.5.1-bin-hadoop3/conf/log4j2.properties
+        state: present
+        regex: '^rootLogger.level'
+        line: 'rootLogger.level = warn'
+      become: yes
+
+

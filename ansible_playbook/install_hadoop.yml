@@ -1,0 +1,73 @@
+---
+- name: install hadoop
+  hosts: spark
+  tasks:
+    - name: Add hadoop group
+      group:
+        name: hadoop
+        gid: 1003
+        system: false
+      become: yes
+
+    - name: Add hadoop user
+      user:
+        name: hadoop
+        shell: /bin/bash
+        uid: 1003
+        group: hadoop
+        groups: ubuntu
+        comment: User for HDFS Cluster
+        generate_ssh_key: yes
+        ssh_key_file: .ssh/id_rsa
+      become: yes
+
+    - name: setting environment
+      blockinfile:
+        path: /home/hadoop/.bashrc
+        block: |
+          export HADOOP_HOME=/engine/hadoop-3.3.6
+          export HADOOP_MAPRED_HOME=$HADOOP_HOME
+          export HADOOP_COMMON_HOME=$HADOOP_HOME
+          export HADOOP_HDFS_HOME=$HADOOP_HOME
+          export YARN_HOME=$HADOOP_HOME
+          export HADOOP_COMMON_LIB_NATIVE_DIR=$HADOOP_HOME/lib/native
+          export PATH=$PATH:$HADOOP_HOME/sbin:$HADOOP_HOME/bin
+        marker: "# {mark} Setting environment from ansible"
+      become: yes
+
+    - name: fetch all public ssh keys
+      shell: cat /home/hadoop/.ssh/id_rsa.pub
+      register: ssh_keys
+      become: yes
+      tags:
+        - ssh
+
+    - name: check keys
+      debug: msg="{{ ssh_keys.stdout }}"
+      tags:
+        - ssh
+
+    - name: deploy keys on all spark servers
+      authorized_key: user=hadoop key="{{ item[0] }}"
+      delegate_to: "{{ item[1] }}"
+      with_nested:
+        - "{{ ssh_keys.stdout }}"
+        - "{{groups['spark']}}"
+      become: yes
+      tags:
+        - ssh
+
+    - name: Add spark user to hadoop group
+      user:
+        name: spark
+        groups: hadoop
+      become: yes
+
+    - name: unarchive file
+      ansible.builtin.unarchive:
+        src: /home/ec2-user/downloads/hadoop-3.3.6.tar.gz
+        dest: /engine
+        copy: true
+        owner: hadoop
+        group: hadoop
+      become: yes

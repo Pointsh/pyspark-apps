@@ -1,0 +1,46 @@
+---
+- name: Filesystem setup
+  hosts: spark
+  tasks:
+    - name: Install lvm library
+      apt:
+        pkg:
+          - lvm2
+        update_cache: true
+      become: yes
+
+    - name: Create VG
+      lvg:
+        vg: vg-data
+        pvs: /dev/nvme1n1
+        pesize: 20
+      become: yes
+
+    - name: Create LV
+      community.general.lvol:
+        vg: vg-data
+        lv: lv-data01
+        size: 100%FREE
+        shrink: false
+      become: yes
+
+    - name: Create Filesystem
+      community.general.filesystem:
+        fstype: xfs
+        dev: /dev/vg-data/lv-data01
+      become: yes
+
+    - name: create directory
+      file:
+        path: /data01
+        state: directory
+        mode: 0755
+      become: yes
+
+    - name: mount filesystem
+      mount:
+        path: /data01
+        src: /dev/vg-data/lv-data01
+        fstype: xfs
+        state: mounted
+      become: yes
